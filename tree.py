@@ -1,3 +1,4 @@
+from __future__ import division
 from math import log
 
 class Tree:
@@ -40,17 +41,31 @@ def split_data(data, feature, threshold):
     # TODO: split data into left and right by given feature.
     # left should contain points whose values are less than threshold
     # right should contain points with values greater than or equal to threshold
+    for point in data:
+        if point.values[feature] < threshold:
+            left.append(point)
+        else:
+            right.append(point)
+
     return (left, right)
 
 def count_labels(data):
     counts = {}
     # TODO: counts should count the labels in data
     # e.g. counts = {'spam': 10, 'ham': 4}
+    for point in data:
+        if point.label in counts.keys():
+            counts[point.label] += 1
+        else:
+            counts[point.label] = 1
     return counts
 
 def counts_to_entropy(counts):
     entropy = 0.0
     # TODO: should convert a dictionary of counts into entropy
+    total = sum(counts.itervalues())
+    for key, value in counts.iteritems():
+        entropy -= (value/total) * log(value/total, 2)
     return entropy
     
 def get_entropy(data):
@@ -78,6 +93,21 @@ def find_best_threshold_fast(data, feature):
     best_gain = 0
     best_threshold = None
     # TODO: Write a more efficient method to find the best threshold.
+    """
+    - Sort the dataset by the feature we are splitting on.
+    - Go through the sorted data in order, moving data points from the right split to the left and
+    - Keeping a rolling count of the probabilities of each label
+    """
+    data = sorted(data, key=lambda d: d.values[feature], reverse=True)
+    entropy_list = [] * len(data)
+    for i in range(1, len(data)):
+        left, right = data[:i], data[i:]
+        curr = (get_entropy(left)*len(left) + get_entropy(right)*len(right))/len(data)
+        gain = entropy - curr
+        if gain > best_gain:
+            best_gain = gain
+            best_threshold = data[i-1].values[feature]
+
     return (best_gain, best_threshold)
 
 def find_best_split(data):
@@ -87,6 +117,13 @@ def find_best_split(data):
     best_threshold = None
     best_gain = 0
     # TODO: find the feature and threshold that maximize information gain.
+    for feature in range(len(data[0].values)):
+        gain, threshold = find_best_threshold(data, feature)
+        if gain > best_gain:
+            best_gain = gain
+            best_feature = feature
+            best_threshold = threshold
+    # print best_feature, best_threshold, best_gain
     return (best_feature, best_threshold)
 
 def make_leaf(data):
@@ -106,11 +143,16 @@ def c45(data, max_levels):
     # or if there is no split that gains information, otherwise it should greedily
     # choose an feature and threshold to split on and recurse on both partitions
     # of the data.
-    return make_leaf(data)
+
+
+    # If data is homogeneous, return leaf node
+    labels = [d.label for d in data]
+    if labels.count(labels[0]) == len(labels):
+        return make_leaf(data)
 
 def submission(train, test):
     # TODO: Once your tests pass, make your submission as good as you can!
-    tree = c45(train, 4)
+    tree = c45(train, max_levels=9)
     predictions = []
     for point in test:
         predictions.append(predict(tree, point))
